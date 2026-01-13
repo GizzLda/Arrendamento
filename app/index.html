@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arrendamento - Gestão de Imóveis</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Gestão de arrendamentos</p>
+          <h1>Arrendamento</h1>
+          <p class="subtitle">
+            Controle de imóveis, receitas e despesas com histórico de quem criou ou alterou cada registo.
+          </p>
+        </div>
+        <div class="session" id="sessionSummary"></div>
+      </header>
+
+      <main>
+        <section class="card" id="loginCard">
+          <div class="card-header">
+            <h2>Entrar</h2>
+            <p>Utilize o utilizador de demonstração ou crie novos utilizadores (admin).</p>
+          </div>
+          <form id="loginForm" class="stack">
+            <label>
+              <span>Email</span>
+              <input type="email" id="loginEmail" required placeholder="admin@arrendamento.local" />
+            </label>
+            <label>
+              <span>Palavra-passe</span>
+              <input type="password" id="loginPassword" required placeholder="••••••" />
+            </label>
+            <button type="submit" class="primary">Entrar</button>
+            <p class="hint">
+              <strong>Admin demo:</strong> admin@arrendamento.local / Admin123
+            </p>
+          </form>
+        </section>
+
+        <section class="app" id="appView" hidden>
+          <div class="grid">
+            <section class="card">
+              <div class="card-header">
+                <h2>Imóveis</h2>
+                <p>Crie, edite ou remova imóveis arrendados.</p>
+              </div>
+              <form id="propertyForm" class="stack">
+                <input type="hidden" id="propertyId" />
+                <label>
+                  <span>Nome do imóvel</span>
+                  <input type="text" id="propertyName" required placeholder="Apartamento T2" />
+                </label>
+                <label>
+                  <span>Morada</span>
+                  <input type="text" id="propertyAddress" required placeholder="Rua das Flores, 123" />
+                </label>
+                <div class="row">
+                  <button type="submit" class="primary">Guardar imóvel</button>
+                  <button type="button" class="ghost" id="propertyReset">Limpar</button>
+                </div>
+              </form>
+              <div class="table" id="propertyList"></div>
+            </section>
+
+            <section class="card">
+              <div class="card-header">
+                <h2>Receitas &amp; Despesas</h2>
+                <p>Registe rendas, cauções, despesas e devoluções.</p>
+              </div>
+              <form id="transactionForm" class="stack">
+                <input type="hidden" id="transactionId" />
+                <label>
+                  <span>Imóvel</span>
+                  <select id="transactionProperty" required></select>
+                </label>
+                <label>
+                  <span>Tipo</span>
+                  <select id="transactionType" required>
+                    <option value="income">Receita</option>
+                    <option value="expense">Despesa</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Categoria</span>
+                  <select id="transactionCategory" required></select>
+                </label>
+                <label>
+                  <span>Valor (€)</span>
+                  <input type="number" step="0.01" min="0" id="transactionAmount" required />
+                </label>
+                <label>
+                  <span>Data</span>
+                  <input type="date" id="transactionDate" required />
+                </label>
+                <label>
+                  <span>Notas</span>
+                  <textarea id="transactionNotes" rows="2"></textarea>
+                </label>
+                <div class="row">
+                  <button type="submit" class="primary">Guardar movimento</button>
+                  <button type="button" class="ghost" id="transactionReset">Limpar</button>
+                </div>
+              </form>
+              <div class="table" id="transactionList"></div>
+            </section>
+          </div>
+
+          <section class="card">
+            <div class="card-header">
+              <h2>Resultados mensais &amp; anuais</h2>
+              <p>Resumo por imóvel e total do portfólio.</p>
+            </div>
+            <div class="filters">
+              <label>
+                <span>Ano</span>
+                <input type="number" id="filterYear" min="2000" max="2100" />
+              </label>
+              <label>
+                <span>Mês</span>
+                <select id="filterMonth">
+                  <option value="">Todos</option>
+                  <option value="0">Janeiro</option>
+                  <option value="1">Fevereiro</option>
+                  <option value="2">Março</option>
+                  <option value="3">Abril</option>
+                  <option value="4">Maio</option>
+                  <option value="5">Junho</option>
+                  <option value="6">Julho</option>
+                  <option value="7">Agosto</option>
+                  <option value="8">Setembro</option>
+                  <option value="9">Outubro</option>
+                  <option value="10">Novembro</option>
+                  <option value="11">Dezembro</option>
+                </select>
+              </label>
+              <button class="ghost" id="filterReset" type="button">Este ano</button>
+            </div>
+            <div class="table" id="summaryTable"></div>
+          </section>
+
+          <section class="card" id="adminSection" hidden>
+            <div class="card-header">
+              <h2>Administração de utilizadores</h2>
+              <p>Crie ou remova utilizadores (apenas admin).</p>
+            </div>
+            <form id="userForm" class="stack">
+              <label>
+                <span>Nome</span>
+                <input type="text" id="userName" required />
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" id="userEmail" required />
+              </label>
+              <label>
+                <span>Palavra-passe</span>
+                <input type="password" id="userPassword" required />
+              </label>
+              <label>
+                <span>Papel</span>
+                <select id="userRole" required>
+                  <option value="user">Utilizador</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </label>
+              <button type="submit" class="primary">Criar utilizador</button>
+            </form>
+            <div class="table" id="userList"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
