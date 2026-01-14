@@ -13,22 +13,35 @@ const ui = {
   loginForm: document.getElementById("loginForm"),
   loginEmail: document.getElementById("loginEmail"),
   loginPassword: document.getElementById("loginPassword"),
+  menuView: document.getElementById("menuView"),
+  propertiesView: document.getElementById("propertiesView"),
+  expenseView: document.getElementById("expenseView"),
+  incomeView: document.getElementById("incomeView"),
+  summaryView: document.getElementById("summaryView"),
   propertyForm: document.getElementById("propertyForm"),
   propertyId: document.getElementById("propertyId"),
   propertyName: document.getElementById("propertyName"),
   propertyAddress: document.getElementById("propertyAddress"),
   propertyList: document.getElementById("propertyList"),
   propertyReset: document.getElementById("propertyReset"),
-  transactionForm: document.getElementById("transactionForm"),
-  transactionId: document.getElementById("transactionId"),
-  transactionProperty: document.getElementById("transactionProperty"),
-  transactionType: document.getElementById("transactionType"),
-  transactionCategory: document.getElementById("transactionCategory"),
-  transactionAmount: document.getElementById("transactionAmount"),
-  transactionDate: document.getElementById("transactionDate"),
-  transactionNotes: document.getElementById("transactionNotes"),
-  transactionList: document.getElementById("transactionList"),
-  transactionReset: document.getElementById("transactionReset"),
+  expenseForm: document.getElementById("expenseForm"),
+  expenseId: document.getElementById("expenseId"),
+  expenseProperty: document.getElementById("expenseProperty"),
+  expenseCategory: document.getElementById("expenseCategory"),
+  expenseAmount: document.getElementById("expenseAmount"),
+  expenseDate: document.getElementById("expenseDate"),
+  expenseNotes: document.getElementById("expenseNotes"),
+  expenseList: document.getElementById("expenseList"),
+  expenseReset: document.getElementById("expenseReset"),
+  incomeForm: document.getElementById("incomeForm"),
+  incomeId: document.getElementById("incomeId"),
+  incomeProperty: document.getElementById("incomeProperty"),
+  incomeCategory: document.getElementById("incomeCategory"),
+  incomeAmount: document.getElementById("incomeAmount"),
+  incomeDate: document.getElementById("incomeDate"),
+  incomeNotes: document.getElementById("incomeNotes"),
+  incomeList: document.getElementById("incomeList"),
+  incomeReset: document.getElementById("incomeReset"),
   filterYear: document.getElementById("filterYear"),
   filterMonth: document.getElementById("filterMonth"),
   filterReset: document.getElementById("filterReset"),
@@ -117,14 +130,60 @@ const setSessionSummary = (user) => {
   });
 };
 
-const renderPropertyOptions = (properties) => {
-  ui.transactionProperty.innerHTML = properties
-    .map((property) => `<option value="${property.id}">${property.name}</option>`)
-    .join("");
+let activeSession = null;
+
+const setView = (viewId) => {
+  const views = [
+    ui.menuView,
+    ui.propertiesView,
+    ui.expenseView,
+    ui.incomeView,
+    ui.summaryView,
+  ];
+  views.forEach((view) => {
+    if (view) {
+      view.hidden = view.id !== viewId;
+    }
+  });
+  if (ui.adminSection) {
+    if (viewId === "menuView") {
+      ui.adminSection.hidden = !activeSession || activeSession.role !== "admin";
+    } else {
+      ui.adminSection.hidden = true;
+    }
+  }
 };
 
-const renderCategoryOptions = (type) => {
-  ui.transactionCategory.innerHTML = CATEGORY_OPTIONS[type]
+const wireNavigation = () => {
+  ui.menuView.querySelectorAll(".menu-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = button.dataset.target;
+      if (target) {
+        setView(target);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-action='back']").forEach((button) => {
+    button.addEventListener("click", () => {
+      setView("menuView");
+    });
+  });
+};
+
+const renderPropertyOptions = (properties) => {
+  const options = properties
+    .map((property) => `<option value="${property.id}">${property.name}</option>`)
+    .join("");
+  ui.expenseProperty.innerHTML = options;
+  ui.incomeProperty.innerHTML = options;
+};
+
+const renderCategoryOptions = () => {
+  ui.expenseCategory.innerHTML = CATEGORY_OPTIONS.expense
+    .map((category) => `<option value="${category}">${category}</option>`)
+    .join("");
+  ui.incomeCategory.innerHTML = CATEGORY_OPTIONS.income
     .map((category) => `<option value="${category}">${category}</option>`)
     .join("");
 };
@@ -191,7 +250,8 @@ const renderProperties = (data, user) => {
 
 const renderTransactions = (data, user) => {
   if (data.transactions.length === 0) {
-    ui.transactionList.innerHTML = "<p class=\"hint\">Nenhum movimento registado.</p>";
+    ui.expenseList.innerHTML = "<p class=\"hint\">Nenhuma despesa registada.</p>";
+    ui.incomeList.innerHTML = "<p class=\"hint\">Nenhuma receita registada.</p>";
     return;
   }
 
@@ -199,13 +259,88 @@ const renderTransactions = (data, user) => {
     data.properties.map((property) => [property.id, property.name])
   );
 
-  ui.transactionList.innerHTML = `
+  const sorted = data.transactions
+    .slice()
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const expenseRows = sorted
+    .filter((transaction) => transaction.type === "expense")
+    .map((transaction) => transactionRow(transaction, propertyLookup))
+    .join("");
+
+  const incomeRows = sorted
+    .filter((transaction) => transaction.type === "income")
+    .map((transaction) => transactionRow(transaction, propertyLookup))
+    .join("");
+
+  ui.expenseList.innerHTML = buildTransactionTable(expenseRows);
+  ui.incomeList.innerHTML = buildTransactionTable(incomeRows);
+
+  [ui.expenseList, ui.incomeList].forEach((list) => {
+    list.querySelectorAll("button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = button.dataset.action;
+        const transactionId = button.dataset.id;
+        const transaction = data.transactions.find((item) => item.id === transactionId);
+        if (!transaction) return;
+        if (action === "edit") {
+          if (transaction.type === "expense") {
+            setView("expenseView");
+            ui.expenseId.value = transaction.id;
+            ui.expenseProperty.value = transaction.propertyId;
+            ui.expenseCategory.value = transaction.category;
+            ui.expenseAmount.value = transaction.amount;
+            ui.expenseDate.value = transaction.date;
+            ui.expenseNotes.value = transaction.notes || "";
+          } else {
+            setView("incomeView");
+            ui.incomeId.value = transaction.id;
+            ui.incomeProperty.value = transaction.propertyId;
+            ui.incomeCategory.value = transaction.category;
+            ui.incomeAmount.value = transaction.amount;
+            ui.incomeDate.value = transaction.date;
+            ui.incomeNotes.value = transaction.notes || "";
+          }
+          return;
+        }
+        if (action === "delete") {
+          data.transactions = data.transactions.filter((item) => item.id !== transactionId);
+          saveData(data);
+          refreshApp(data, user);
+        }
+      });
+    });
+  });
+};
+
+const transactionRow = (transaction, propertyLookup) => `
+  <tr>
+    <td>${formatDate(transaction.date)}</td>
+    <td>${propertyLookup.get(transaction.propertyId) || "-"}</td>
+    <td>${transaction.category}</td>
+    <td>${formatCurrency(transaction.amount)}</td>
+    <td>${transaction.notes || "-"}</td>
+    <td class="audit">
+      Criado por ${transaction.createdBy}
+      ${transaction.updatedBy ? `<br/>Atualizado por ${transaction.updatedBy}` : ""}
+    </td>
+    <td>
+      <button class="ghost" data-action="edit" data-id="${transaction.id}">Editar</button>
+      <button class="danger" data-action="delete" data-id="${transaction.id}">Remover</button>
+    </td>
+  </tr>
+`;
+
+const buildTransactionTable = (rows) => {
+  if (!rows || rows.trim() === "") {
+    return "<p class=\"hint\">Sem movimentos neste tipo.</p>";
+  }
+  return `
     <table>
       <thead>
         <tr>
           <th>Data</th>
           <th>Imóvel</th>
-          <th>Tipo</th>
           <th>Categoria</th>
           <th>Valor</th>
           <th>Notas</th>
@@ -214,60 +349,10 @@ const renderTransactions = (data, user) => {
         </tr>
       </thead>
       <tbody>
-        ${data.transactions
-          .slice()
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .map((transaction) => {
-            const typeLabel =
-              transaction.type === "income" ? "Receita" : "Despesa";
-            return `
-              <tr>
-                <td>${formatDate(transaction.date)}</td>
-                <td>${propertyLookup.get(transaction.propertyId) || "-"}</td>
-                <td>${typeLabel}</td>
-                <td>${transaction.category}</td>
-                <td>${formatCurrency(transaction.amount)}</td>
-                <td>${transaction.notes || "-"}</td>
-                <td class="audit">
-                  Criado por ${transaction.createdBy}
-                  ${transaction.updatedBy ? `<br/>Atualizado por ${transaction.updatedBy}` : ""}
-                </td>
-                <td>
-                  <button class="ghost" data-action="edit" data-id="${transaction.id}">Editar</button>
-                  <button class="danger" data-action="delete" data-id="${transaction.id}">Remover</button>
-                </td>
-              </tr>
-            `;
-          })
-          .join("")}
+        ${rows}
       </tbody>
     </table>
   `;
-
-  ui.transactionList.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const action = button.dataset.action;
-      const transactionId = button.dataset.id;
-      const transaction = data.transactions.find((item) => item.id === transactionId);
-      if (!transaction) return;
-      if (action === "edit") {
-        ui.transactionId.value = transaction.id;
-        ui.transactionProperty.value = transaction.propertyId;
-        ui.transactionType.value = transaction.type;
-        renderCategoryOptions(transaction.type);
-        ui.transactionCategory.value = transaction.category;
-        ui.transactionAmount.value = transaction.amount;
-        ui.transactionDate.value = transaction.date;
-        ui.transactionNotes.value = transaction.notes || "";
-        return;
-      }
-      if (action === "delete") {
-        data.transactions = data.transactions.filter((item) => item.id !== transactionId);
-        saveData(data);
-        refreshApp(data, user);
-      }
-    });
-  });
 };
 
 const renderSummary = (data) => {
@@ -410,15 +495,18 @@ const refreshApp = (data, session) => {
 const init = () => {
   const data = loadData();
   const session = loadSession();
+  activeSession = session;
 
   ui.filterYear.value = currentYear();
-  renderCategoryOptions(ui.transactionType.value);
+  renderCategoryOptions();
+  wireNavigation();
 
   if (session) {
     ui.loginCard.hidden = true;
     ui.appView.hidden = false;
     setSessionSummary(session);
     refreshApp(data, session);
+    setView("menuView");
   } else {
     ui.loginCard.hidden = false;
     ui.appView.hidden = true;
@@ -472,22 +560,18 @@ const init = () => {
     ui.propertyId.value = "";
   });
 
-  ui.transactionType.addEventListener("change", (event) => {
-    renderCategoryOptions(event.target.value);
-  });
-
-  ui.transactionForm.addEventListener("submit", (event) => {
+  ui.expenseForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const sessionData = loadSession();
     if (!sessionData) return;
-    const id = ui.transactionId.value;
+    const id = ui.expenseId.value;
     const payload = {
-      propertyId: ui.transactionProperty.value,
-      type: ui.transactionType.value,
-      category: ui.transactionCategory.value,
-      amount: Number(ui.transactionAmount.value),
-      date: ui.transactionDate.value,
-      notes: ui.transactionNotes.value.trim(),
+      propertyId: ui.expenseProperty.value,
+      type: "expense",
+      category: ui.expenseCategory.value,
+      amount: Number(ui.expenseAmount.value),
+      date: ui.expenseDate.value,
+      notes: ui.expenseNotes.value.trim(),
     };
 
     if (id) {
@@ -504,16 +588,56 @@ const init = () => {
     }
 
     saveData(data);
-    ui.transactionForm.reset();
-    ui.transactionId.value = "";
-    ui.transactionDate.value = new Date().toISOString().split("T")[0];
+    ui.expenseForm.reset();
+    ui.expenseId.value = "";
+    ui.expenseDate.value = new Date().toISOString().split("T")[0];
     refreshApp(data, sessionData);
   });
 
-  ui.transactionReset.addEventListener("click", () => {
-    ui.transactionForm.reset();
-    ui.transactionId.value = "";
-    ui.transactionDate.value = new Date().toISOString().split("T")[0];
+  ui.expenseReset.addEventListener("click", () => {
+    ui.expenseForm.reset();
+    ui.expenseId.value = "";
+    ui.expenseDate.value = new Date().toISOString().split("T")[0];
+  });
+
+  ui.incomeForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const sessionData = loadSession();
+    if (!sessionData) return;
+    const id = ui.incomeId.value;
+    const payload = {
+      propertyId: ui.incomeProperty.value,
+      type: "income",
+      category: ui.incomeCategory.value,
+      amount: Number(ui.incomeAmount.value),
+      date: ui.incomeDate.value,
+      notes: ui.incomeNotes.value.trim(),
+    };
+
+    if (id) {
+      const transaction = data.transactions.find((item) => item.id === id);
+      if (!transaction) return;
+      Object.assign(transaction, payload, { updatedBy: sessionData.name });
+    } else {
+      data.transactions.push({
+        id: createId(),
+        ...payload,
+        createdBy: sessionData.name,
+        updatedBy: "",
+      });
+    }
+
+    saveData(data);
+    ui.incomeForm.reset();
+    ui.incomeId.value = "";
+    ui.incomeDate.value = new Date().toISOString().split("T")[0];
+    refreshApp(data, sessionData);
+  });
+
+  ui.incomeReset.addEventListener("click", () => {
+    ui.incomeForm.reset();
+    ui.incomeId.value = "";
+    ui.incomeDate.value = new Date().toISOString().split("T")[0];
   });
 
   ui.filterYear.addEventListener("input", () => renderSummary(data));
@@ -552,6 +676,10 @@ const init = () => {
     ui.userForm.reset();
     refreshApp(data, sessionData);
   });
+
+  const today = new Date().toISOString().split("T")[0];
+  ui.expenseDate.value = today;
+  ui.incomeDate.value = today;
 };
 
 init();
