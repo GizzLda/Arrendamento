@@ -13,6 +13,7 @@ const ui = {
   appView: document.getElementById("appView"),
   sessionSummary: document.getElementById("sessionSummary"),
   menuView: document.getElementById("menuView"),
+  usersView: document.getElementById("usersView"),
   propertiesView: document.getElementById("propertiesView"),
   expenseView: document.getElementById("expenseView"),
   incomeView: document.getElementById("incomeView"),
@@ -45,13 +46,19 @@ const ui = {
   filterMonth: document.getElementById("filterMonth"),
   filterReset: document.getElementById("filterReset"),
   summaryTable: document.getElementById("summaryTable"),
-  adminSection: document.getElementById("adminSection"),
+  adminTools: document.getElementById("adminTools"),
+  profileTools: document.getElementById("profileTools"),
   userForm: document.getElementById("userForm"),
+  userId: document.getElementById("userId"),
   userName: document.getElementById("userName"),
   userEmail: document.getElementById("userEmail"),
   userPassword: document.getElementById("userPassword"),
   userRole: document.getElementById("userRole"),
   userList: document.getElementById("userList"),
+  userReset: document.getElementById("userReset"),
+  profileSummary: document.getElementById("profileSummary"),
+  passwordForm: document.getElementById("passwordForm"),
+  profilePassword: document.getElementById("profilePassword"),
 };
 
 const createId = () => crypto.randomUUID();
@@ -116,14 +123,19 @@ const setSessionSummary = (user) => {
     ui.sessionSummary.innerHTML = "";
     return;
   }
+  const userButtonLabel = user.role === "admin" ? "Gerir utilizadores" : "Minha conta";
   ui.sessionSummary.innerHTML = `
     <p><strong>${user.name}</strong></p>
     <p class="hint">${user.email}</p>
     <span class="badge">${user.role === "admin" ? "Administrador" : "Utilizador"}</span>
     <div class="row" style="margin-top:12px;">
+      <button class="ghost" id="userMenuButton">${userButtonLabel}</button>
       <button class="ghost" id="logoutButton">Sair</button>
     </div>
   `;
+  document.getElementById("userMenuButton").addEventListener("click", () => {
+    setView("usersView");
+  });
   document.getElementById("logoutButton").addEventListener("click", () => {
     clearSession();
     location.href = "../login/";
@@ -139,17 +151,22 @@ const setView = (viewId) => {
     ui.expenseView,
     ui.incomeView,
     ui.summaryView,
+    ui.usersView,
   ];
   views.forEach((view) => {
     if (view) {
       view.hidden = view.id !== viewId;
     }
   });
-  if (ui.adminSection) {
-    if (viewId === "menuView") {
-      ui.adminSection.hidden = !activeSession || activeSession.role !== "admin";
-    } else {
-      ui.adminSection.hidden = true;
+  if (ui.usersView) {
+    if (viewId === "usersView") {
+      if (activeSession && activeSession.role === "admin") {
+        ui.adminTools.hidden = false;
+        ui.profileTools.hidden = true;
+      } else {
+        ui.adminTools.hidden = true;
+        ui.profileTools.hidden = false;
+      }
     }
   }
 };
@@ -445,54 +462,94 @@ const renderSummary = (data) => {
 };
 
 const renderUsers = (data, session) => {
-  if (!ui.adminSection || !ui.userList) return;
-  if (!session || session.role !== "admin") {
-    ui.adminSection.hidden = true;
-    return;
-  }
-  ui.adminSection.hidden = false;
+  if (!ui.usersView) return;
+  if (!session) return;
 
-  ui.userList.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>Email</th>
-          <th>Papel</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.users
-          .map(
-            (user) => `
+  if (session.role === "admin") {
+    if (!ui.userList) return;
+    ui.adminTools.hidden = false;
+    ui.profileTools.hidden = true;
+    ui.userList.innerHTML = `
+      <table>
+        <thead>
           <tr>
-            <td>${user.name}</td>
-            <td>${user.email}</td>
-            <td>${user.role}</td>
-            <td>
-              ${
-                user.id === session.id
-                  ? "Sessão ativa"
-                  : `<button class="danger" data-id="${user.id}">Remover</button>`
-              }
-            </td>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Papel</th>
+            <th>Ações</th>
           </tr>
-        `
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
+        </thead>
+        <tbody>
+          ${data.users
+            .map(
+              (user) => `
+            <tr>
+              <td>${user.name}</td>
+              <td>${user.email}</td>
+              <td>${user.role}</td>
+              <td>
+                <button class="ghost" data-action="edit" data-id="${user.id}">Editar</button>
+                ${
+                  user.id === session.id
+                    ? "Sessão ativa"
+                    : `<button class="danger" data-action="delete" data-id="${user.id}">Remover</button>`
+                }
+              </td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
 
-  ui.userList.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const userId = button.dataset.id;
-      data.users = data.users.filter((item) => item.id !== userId);
-      saveData(data);
-      refreshApp(data, session);
+    ui.userList.querySelectorAll("button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = button.dataset.action;
+        const userId = button.dataset.id;
+        const target = data.users.find((item) => item.id === userId);
+        if (!target) return;
+        if (action === "edit") {
+          ui.userId.value = target.id;
+          ui.userName.value = target.name;
+          ui.userEmail.value = target.email;
+          ui.userRole.value = target.role;
+          ui.userPassword.value = "";
+          return;
+        }
+        if (action === "delete") {
+          data.users = data.users.filter((item) => item.id !== userId);
+          saveData(data);
+          refreshApp(data, session);
+        }
+      });
     });
-  });
+  } else {
+    ui.adminTools.hidden = true;
+    ui.profileTools.hidden = false;
+    const currentUser = data.users.find((user) => user.id === session.id);
+    if (!currentUser) return;
+    if (ui.profileSummary) {
+      ui.profileSummary.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Papel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${currentUser.name}</td>
+              <td>${currentUser.email}</td>
+              <td>${currentUser.role}</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+  }
 };
 
 const refreshApp = (data, session) => {
@@ -684,24 +741,65 @@ const setupMainPage = (data, session) => {
       const password = ui.userPassword.value.trim();
       const role = ui.userRole.value;
 
-      if (!name || !email || !password) return;
-      const exists = data.users.some((user) => user.email.toLowerCase() === email.toLowerCase());
-      if (exists) {
+      if (!name || !email) return;
+      const id = ui.userId.value;
+      const emailExists = data.users.some(
+        (user) => user.email.toLowerCase() === email.toLowerCase() && user.id !== id
+      );
+      if (emailExists) {
         alert("Já existe um utilizador com este email.");
         return;
       }
 
-      data.users.push({
-        id: createId(),
-        name,
-        email,
-        password,
-        role,
-      });
+      if (id) {
+        const existing = data.users.find((user) => user.id === id);
+        if (!existing) return;
+        existing.name = name;
+        existing.email = email;
+        existing.role = role;
+        if (password) {
+          existing.password = password;
+        }
+      } else {
+        if (!password) {
+          alert("Indique uma palavra-passe para o novo utilizador.");
+          return;
+        }
+        data.users.push({
+          id: createId(),
+          name,
+          email,
+          password,
+          role,
+        });
+      }
       saveData(data);
       ui.userForm.reset();
+      ui.userId.value = "";
       refreshApp(data, session);
       setView("menuView");
+    });
+  }
+
+  if (ui.userReset) {
+    ui.userReset.addEventListener("click", () => {
+      ui.userForm.reset();
+      ui.userId.value = "";
+    });
+  }
+
+  if (ui.passwordForm) {
+    ui.passwordForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (session.role === "admin") return;
+      const newPassword = ui.profilePassword.value.trim();
+      if (!newPassword) return;
+      const currentUser = data.users.find((user) => user.id === session.id);
+      if (!currentUser) return;
+      currentUser.password = newPassword;
+      saveData(data);
+      ui.passwordForm.reset();
+      alert("Palavra-passe atualizada com sucesso.");
     });
   }
 
