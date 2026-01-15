@@ -7,12 +7,11 @@ const CATEGORY_OPTIONS = {
 };
 
 const ui = {
-  loginCard: document.getElementById("loginCard"),
-  appView: document.getElementById("appView"),
-  sessionSummary: document.getElementById("sessionSummary"),
   loginForm: document.getElementById("loginForm"),
   loginEmail: document.getElementById("loginEmail"),
   loginPassword: document.getElementById("loginPassword"),
+  appView: document.getElementById("appView"),
+  sessionSummary: document.getElementById("sessionSummary"),
   menuView: document.getElementById("menuView"),
   propertiesView: document.getElementById("propertiesView"),
   expenseView: document.getElementById("expenseView"),
@@ -112,6 +111,7 @@ const formatDate = (value) => {
 const currentYear = () => new Date().getFullYear();
 
 const setSessionSummary = (user) => {
+  if (!ui.sessionSummary) return;
   if (!user) {
     ui.sessionSummary.innerHTML = "";
     return;
@@ -126,7 +126,7 @@ const setSessionSummary = (user) => {
   `;
   document.getElementById("logoutButton").addEventListener("click", () => {
     clearSession();
-    location.reload();
+    location.href = "../login/";
   });
 };
 
@@ -155,6 +155,7 @@ const setView = (viewId) => {
 };
 
 const wireNavigation = () => {
+  if (!ui.menuView) return;
   ui.menuView.querySelectorAll(".menu-card").forEach((button) => {
     button.addEventListener("click", () => {
       const target = button.dataset.target;
@@ -172,6 +173,7 @@ const wireNavigation = () => {
 };
 
 const renderPropertyOptions = (properties) => {
+  if (!ui.expenseProperty || !ui.incomeProperty) return;
   const options = properties
     .map((property) => `<option value="${property.id}">${property.name}</option>`)
     .join("");
@@ -180,15 +182,20 @@ const renderPropertyOptions = (properties) => {
 };
 
 const renderCategoryOptions = () => {
-  ui.expenseCategory.innerHTML = CATEGORY_OPTIONS.expense
-    .map((category) => `<option value="${category}">${category}</option>`)
-    .join("");
-  ui.incomeCategory.innerHTML = CATEGORY_OPTIONS.income
-    .map((category) => `<option value="${category}">${category}</option>`)
-    .join("");
+  if (ui.expenseCategory) {
+    ui.expenseCategory.innerHTML = CATEGORY_OPTIONS.expense
+      .map((category) => `<option value="${category}">${category}</option>`)
+      .join("");
+  }
+  if (ui.incomeCategory) {
+    ui.incomeCategory.innerHTML = CATEGORY_OPTIONS.income
+      .map((category) => `<option value="${category}">${category}</option>`)
+      .join("");
+  }
 };
 
 const renderProperties = (data, user) => {
+  if (!ui.propertyList) return;
   if (data.properties.length === 0) {
     ui.propertyList.innerHTML = "<p class=\"hint\">Ainda não existem imóveis.</p>";
     renderPropertyOptions([]);
@@ -249,6 +256,7 @@ const renderProperties = (data, user) => {
 };
 
 const renderTransactions = (data, user) => {
+  if (!ui.expenseList || !ui.incomeList) return;
   if (data.transactions.length === 0) {
     ui.expenseList.innerHTML = "<p class=\"hint\">Nenhuma despesa registada.</p>";
     ui.incomeList.innerHTML = "<p class=\"hint\">Nenhuma receita registada.</p>";
@@ -356,6 +364,7 @@ const buildTransactionTable = (rows) => {
 };
 
 const renderSummary = (data) => {
+  if (!ui.summaryTable) return;
   const selectedYear = Number(ui.filterYear.value) || currentYear();
   const selectedMonth = ui.filterMonth.value === "" ? null : Number(ui.filterMonth.value);
 
@@ -436,6 +445,7 @@ const renderSummary = (data) => {
 };
 
 const renderUsers = (data, session) => {
+  if (!ui.adminSection || !ui.userList) return;
   if (!session || session.role !== "admin") {
     ui.adminSection.hidden = true;
     return;
@@ -492,25 +502,11 @@ const refreshApp = (data, session) => {
   renderUsers(data, session);
 };
 
-const init = () => {
-  const data = loadData();
-  const session = loadSession();
-  activeSession = session;
-
-  ui.filterYear.value = currentYear();
-  renderCategoryOptions();
-  wireNavigation();
-
+const setupLoginPage = (data, session) => {
+  if (!ui.loginForm) return;
   if (session) {
-    ui.loginCard.hidden = true;
-    ui.appView.hidden = false;
-    setSessionSummary(session);
-    refreshApp(data, session);
-    setView("menuView");
-  } else {
-    ui.loginCard.hidden = false;
-    ui.appView.hidden = true;
-    setSessionSummary(null);
+    location.href = "../main/";
+    return;
   }
 
   ui.loginForm.addEventListener("submit", (event) => {
@@ -526,160 +522,199 @@ const init = () => {
       return;
     }
     saveSession(found);
-    location.reload();
+    location.href = "../main/";
   });
+};
 
-  ui.propertyForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const sessionData = loadSession();
-    if (!sessionData) return;
-    const name = ui.propertyName.value.trim();
-    const address = ui.propertyAddress.value.trim();
-    if (!name || !address) return;
+const setupMainPage = (data, session) => {
+  if (!ui.appView) return;
+  if (!session) {
+    location.href = "../login/";
+    return;
+  }
 
-    const id = ui.propertyId.value;
-    if (id) {
-      const property = data.properties.find((item) => item.id === id);
-      if (!property) return;
-      property.name = name;
-      property.address = address;
-    } else {
-      data.properties.push({
+  activeSession = session;
+  setSessionSummary(session);
+  renderCategoryOptions();
+  wireNavigation();
+  refreshApp(data, session);
+  setView("menuView");
+
+  if (ui.filterYear) {
+    ui.filterYear.value = currentYear();
+  }
+
+  if (ui.propertyForm) {
+    ui.propertyForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = ui.propertyName.value.trim();
+      const address = ui.propertyAddress.value.trim();
+      if (!name || !address) return;
+
+      const id = ui.propertyId.value;
+      if (id) {
+        const property = data.properties.find((item) => item.id === id);
+        if (!property) return;
+        property.name = name;
+        property.address = address;
+      } else {
+        data.properties.push({
+          id: createId(),
+          name,
+          address,
+        });
+      }
+      saveData(data);
+      ui.propertyForm.reset();
+      refreshApp(data, session);
+    });
+  }
+
+  if (ui.propertyReset) {
+    ui.propertyReset.addEventListener("click", () => {
+      ui.propertyForm.reset();
+      ui.propertyId.value = "";
+    });
+  }
+
+  if (ui.expenseForm) {
+    ui.expenseForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const id = ui.expenseId.value;
+      const payload = {
+        propertyId: ui.expenseProperty.value,
+        type: "expense",
+        category: ui.expenseCategory.value,
+        amount: Number(ui.expenseAmount.value),
+        date: ui.expenseDate.value,
+        notes: ui.expenseNotes.value.trim(),
+      };
+
+      if (id) {
+        const transaction = data.transactions.find((item) => item.id === id);
+        if (!transaction) return;
+        Object.assign(transaction, payload, { updatedBy: session.name });
+      } else {
+        data.transactions.push({
+          id: createId(),
+          ...payload,
+          createdBy: session.name,
+          updatedBy: "",
+        });
+      }
+
+      saveData(data);
+      ui.expenseForm.reset();
+      ui.expenseId.value = "";
+      ui.expenseDate.value = new Date().toISOString().split("T")[0];
+      refreshApp(data, session);
+    });
+  }
+
+  if (ui.expenseReset) {
+    ui.expenseReset.addEventListener("click", () => {
+      ui.expenseForm.reset();
+      ui.expenseId.value = "";
+      ui.expenseDate.value = new Date().toISOString().split("T")[0];
+    });
+  }
+
+  if (ui.incomeForm) {
+    ui.incomeForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const id = ui.incomeId.value;
+      const payload = {
+        propertyId: ui.incomeProperty.value,
+        type: "income",
+        category: ui.incomeCategory.value,
+        amount: Number(ui.incomeAmount.value),
+        date: ui.incomeDate.value,
+        notes: ui.incomeNotes.value.trim(),
+      };
+
+      if (id) {
+        const transaction = data.transactions.find((item) => item.id === id);
+        if (!transaction) return;
+        Object.assign(transaction, payload, { updatedBy: session.name });
+      } else {
+        data.transactions.push({
+          id: createId(),
+          ...payload,
+          createdBy: session.name,
+          updatedBy: "",
+        });
+      }
+
+      saveData(data);
+      ui.incomeForm.reset();
+      ui.incomeId.value = "";
+      ui.incomeDate.value = new Date().toISOString().split("T")[0];
+      refreshApp(data, session);
+    });
+  }
+
+  if (ui.incomeReset) {
+    ui.incomeReset.addEventListener("click", () => {
+      ui.incomeForm.reset();
+      ui.incomeId.value = "";
+      ui.incomeDate.value = new Date().toISOString().split("T")[0];
+    });
+  }
+
+  if (ui.filterYear) {
+    ui.filterYear.addEventListener("input", () => renderSummary(data));
+  }
+  if (ui.filterMonth) {
+    ui.filterMonth.addEventListener("change", () => renderSummary(data));
+  }
+  if (ui.filterReset) {
+    ui.filterReset.addEventListener("click", () => {
+      ui.filterYear.value = currentYear();
+      ui.filterMonth.value = "";
+      renderSummary(data);
+    });
+  }
+
+  if (ui.userForm) {
+    ui.userForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (session.role !== "admin") return;
+      const name = ui.userName.value.trim();
+      const email = ui.userEmail.value.trim();
+      const password = ui.userPassword.value.trim();
+      const role = ui.userRole.value;
+
+      if (!name || !email || !password) return;
+      const exists = data.users.some((user) => user.email.toLowerCase() === email.toLowerCase());
+      if (exists) {
+        alert("Já existe um utilizador com este email.");
+        return;
+      }
+
+      data.users.push({
         id: createId(),
         name,
-        address,
+        email,
+        password,
+        role,
       });
-    }
-    saveData(data);
-    ui.propertyForm.reset();
-    refreshApp(data, sessionData);
-  });
-
-  ui.propertyReset.addEventListener("click", () => {
-    ui.propertyForm.reset();
-    ui.propertyId.value = "";
-  });
-
-  ui.expenseForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const sessionData = loadSession();
-    if (!sessionData) return;
-    const id = ui.expenseId.value;
-    const payload = {
-      propertyId: ui.expenseProperty.value,
-      type: "expense",
-      category: ui.expenseCategory.value,
-      amount: Number(ui.expenseAmount.value),
-      date: ui.expenseDate.value,
-      notes: ui.expenseNotes.value.trim(),
-    };
-
-    if (id) {
-      const transaction = data.transactions.find((item) => item.id === id);
-      if (!transaction) return;
-      Object.assign(transaction, payload, { updatedBy: sessionData.name });
-    } else {
-      data.transactions.push({
-        id: createId(),
-        ...payload,
-        createdBy: sessionData.name,
-        updatedBy: "",
-      });
-    }
-
-    saveData(data);
-    ui.expenseForm.reset();
-    ui.expenseId.value = "";
-    ui.expenseDate.value = new Date().toISOString().split("T")[0];
-    refreshApp(data, sessionData);
-  });
-
-  ui.expenseReset.addEventListener("click", () => {
-    ui.expenseForm.reset();
-    ui.expenseId.value = "";
-    ui.expenseDate.value = new Date().toISOString().split("T")[0];
-  });
-
-  ui.incomeForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const sessionData = loadSession();
-    if (!sessionData) return;
-    const id = ui.incomeId.value;
-    const payload = {
-      propertyId: ui.incomeProperty.value,
-      type: "income",
-      category: ui.incomeCategory.value,
-      amount: Number(ui.incomeAmount.value),
-      date: ui.incomeDate.value,
-      notes: ui.incomeNotes.value.trim(),
-    };
-
-    if (id) {
-      const transaction = data.transactions.find((item) => item.id === id);
-      if (!transaction) return;
-      Object.assign(transaction, payload, { updatedBy: sessionData.name });
-    } else {
-      data.transactions.push({
-        id: createId(),
-        ...payload,
-        createdBy: sessionData.name,
-        updatedBy: "",
-      });
-    }
-
-    saveData(data);
-    ui.incomeForm.reset();
-    ui.incomeId.value = "";
-    ui.incomeDate.value = new Date().toISOString().split("T")[0];
-    refreshApp(data, sessionData);
-  });
-
-  ui.incomeReset.addEventListener("click", () => {
-    ui.incomeForm.reset();
-    ui.incomeId.value = "";
-    ui.incomeDate.value = new Date().toISOString().split("T")[0];
-  });
-
-  ui.filterYear.addEventListener("input", () => renderSummary(data));
-  ui.filterMonth.addEventListener("change", () => renderSummary(data));
-
-  ui.filterReset.addEventListener("click", () => {
-    ui.filterYear.value = currentYear();
-    ui.filterMonth.value = "";
-    renderSummary(data);
-  });
-
-  ui.userForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const sessionData = loadSession();
-    if (!sessionData || sessionData.role !== "admin") return;
-    const name = ui.userName.value.trim();
-    const email = ui.userEmail.value.trim();
-    const password = ui.userPassword.value.trim();
-    const role = ui.userRole.value;
-
-    if (!name || !email || !password) return;
-    const exists = data.users.some((user) => user.email.toLowerCase() === email.toLowerCase());
-    if (exists) {
-      alert("Já existe um utilizador com este email.");
-      return;
-    }
-
-    data.users.push({
-      id: createId(),
-      name,
-      email,
-      password,
-      role,
+      saveData(data);
+      ui.userForm.reset();
+      refreshApp(data, session);
+      setView("menuView");
     });
-    saveData(data);
-    ui.userForm.reset();
-    refreshApp(data, sessionData);
-  });
+  }
 
   const today = new Date().toISOString().split("T")[0];
-  ui.expenseDate.value = today;
-  ui.incomeDate.value = today;
+  if (ui.expenseDate) ui.expenseDate.value = today;
+  if (ui.incomeDate) ui.incomeDate.value = today;
+};
+
+const init = () => {
+  const data = loadData();
+  const session = loadSession();
+  setupLoginPage(data, session);
+  setupMainPage(data, session);
 };
 
 init();
