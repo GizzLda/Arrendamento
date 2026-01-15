@@ -154,27 +154,13 @@
             <div class="filters">
               <label>
                 <span>Ano</span>
-                <input type="number" id="filterYear" min="2000" max="2100" />
+                <input type="number" id="summaryYear" min="2000" max="2100" />
               </label>
               <label>
-                <span>Mês</span>
-                <select id="filterMonth">
-                  <option value="">Todos</option>
-                  <option value="0">Janeiro</option>
-                  <option value="1">Fevereiro</option>
-                  <option value="2">Março</option>
-                  <option value="3">Abril</option>
-                  <option value="4">Maio</option>
-                  <option value="5">Junho</option>
-                  <option value="6">Julho</option>
-                  <option value="7">Agosto</option>
-                  <option value="8">Setembro</option>
-                  <option value="9">Outubro</option>
-                  <option value="10">Novembro</option>
-                  <option value="11">Dezembro</option>
-                </select>
+                <span>Imóveis</span>
+                <select id="summaryProperties" multiple></select>
               </label>
-              <button class="ghost" id="filterReset" type="button">Este ano</button>
+              <button class="ghost" id="summaryReset" type="button">Este ano</button>
               <button class="ghost" type="button" data-action="back">Voltar ao menu</button>
             </div>
             <div class="table" id="summaryTable"></div>

@@ -153,6 +153,54 @@ button.danger {
   font-weight: 600;
 }
 
+.summary-table th,
+.summary-table td {
+  text-align: center;
+}
+
+.summary-table th:first-child,
+.summary-table td:first-child {
+  text-align: left;
+}
+
+.summary-section th {
+  background: #f8fafc;
+  color: #1f2937;
+  font-weight: 700;
+  text-align: left;
+}
+
+.income-section th,
+.income-row th,
+.income-row td,
+.income-total th,
+.income-total td {
+  background: #ecfdf3;
+}
+
+.expense-section th,
+.expense-row th,
+.expense-row td,
+.expense-total th,
+.expense-total td {
+  background: #fef2f2;
+}
+
+.result-row th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.result-positive {
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.result-negative {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .hint {
   font-size: 0.85rem;
   color: #475467;

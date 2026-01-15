@@ -3,7 +3,14 @@ const SESSION_KEY = "arrendamento_session";
 
 const CATEGORY_OPTIONS = {
   income: ["Renda", "Caução", "Outras receitas"],
-  expense: ["Condomínio", "IMI", "Reparações", "Devolução de caução"],
+  expense: [
+    "Condomínio",
+    "IMI",
+    "Gestão de Arrendamento",
+    "Reparações",
+    "Devolução de caução",
+    "Outras despesas",
+  ],
 };
 
 const ui = {
@@ -42,9 +49,9 @@ const ui = {
   incomeNotes: document.getElementById("incomeNotes"),
   incomeList: document.getElementById("incomeList"),
   incomeReset: document.getElementById("incomeReset"),
-  filterYear: document.getElementById("filterYear"),
-  filterMonth: document.getElementById("filterMonth"),
-  filterReset: document.getElementById("filterReset"),
+  summaryYear: document.getElementById("summaryYear"),
+  summaryProperties: document.getElementById("summaryProperties"),
+  summaryReset: document.getElementById("summaryReset"),
   summaryTable: document.getElementById("summaryTable"),
   adminTools: document.getElementById("adminTools"),
   profileTools: document.getElementById("profileTools"),
@@ -190,12 +197,22 @@ const wireNavigation = () => {
 };
 
 const renderPropertyOptions = (properties) => {
-  if (!ui.expenseProperty || !ui.incomeProperty) return;
   const options = properties
     .map((property) => `<option value="${property.id}">${property.name}</option>`)
     .join("");
-  ui.expenseProperty.innerHTML = options;
-  ui.incomeProperty.innerHTML = options;
+  if (ui.expenseProperty) {
+    ui.expenseProperty.innerHTML = options;
+  }
+  if (ui.incomeProperty) {
+    ui.incomeProperty.innerHTML = options;
+  }
+  if (ui.summaryProperties) {
+    const allOption = `<option value="all">Todos os imóveis</option>`;
+    ui.summaryProperties.innerHTML = allOption + options;
+    if (!Array.from(ui.summaryProperties.options).some((option) => option.selected)) {
+      ui.summaryProperties.options[0].selected = true;
+    }
+  }
 };
 
 const renderCategoryOptions = () => {
@@ -380,83 +397,161 @@ const buildTransactionTable = (rows) => {
   `;
 };
 
-const renderSummary = (data) => {
-  if (!ui.summaryTable) return;
-  const selectedYear = Number(ui.filterYear.value) || currentYear();
-  const selectedMonth = ui.filterMonth.value === "" ? null : Number(ui.filterMonth.value);
+const SUMMARY_MONTHS = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
 
-  const filterByDate = (transaction) => {
+const INCOME_ROWS = [
+  { label: "Rendas", categories: ["Renda"] },
+  { label: "Caução", categories: ["Caução"] },
+  { label: "Outras receitas", categories: ["Outras receitas"] },
+];
+
+const EXPENSE_ROWS = [
+  { label: "Condomínio", categories: ["Condomínio"] },
+  { label: "IMI", categories: ["IMI"] },
+  { label: "Gestão de Arrendamento", categories: ["Gestão de Arrendamento"] },
+  { label: "Reparações", categories: ["Reparações"] },
+  { label: "Devolução de caução", categories: ["Devolução de caução"] },
+  { label: "Outras despesas", categories: ["Outras despesas"] },
+];
+
+const getSelectedPropertyIds = (data) => {
+  if (!ui.summaryProperties) {
+    return data.properties.map((property) => property.id);
+  }
+  const selected = Array.from(ui.summaryProperties.options)
+    .filter((option) => option.selected)
+    .map((option) => option.value);
+  if (selected.length === 0 || selected.includes("all")) {
+    return data.properties.map((property) => property.id);
+  }
+  return selected;
+};
+
+const buildSummaryRow = (label, values, rowClass = "") => {
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return `
+    <tr class="${rowClass}">
+      <th>${label}</th>
+      ${values.map((value) => `<td>${formatCurrency(value)}</td>`).join("")}
+      <th>${formatCurrency(total)}</th>
+    </tr>
+  `;
+};
+
+const renderSummary = (data) => {
+  if (!ui.summaryTable || !ui.summaryYear) return;
+  const selectedYear = Number(ui.summaryYear.value) || currentYear();
+  const selectedPropertyIds = getSelectedPropertyIds(data);
+  const selectedPropertyNames = data.properties
+    .filter((property) => selectedPropertyIds.includes(property.id))
+    .map((property) => property.name);
+  const propertyLabel =
+    data.properties.length === 0
+      ? "Sem imóveis"
+      : selectedPropertyNames.length === data.properties.length
+      ? "Todos os imóveis"
+      : selectedPropertyNames.join(", ");
+
+  const filtered = data.transactions.filter((transaction) => {
     const date = new Date(transaction.date);
     if (Number.isNaN(date.getTime())) return false;
     if (date.getFullYear() !== selectedYear) return false;
-    if (selectedMonth === null) return true;
-    return date.getMonth() === selectedMonth;
-  };
-
-  const filtered = data.transactions.filter(filterByDate);
-
-  const totals = {
-    income: 0,
-    expense: 0,
-  };
-
-  const byProperty = data.properties.map((property) => {
-    const propertyTransactions = filtered.filter(
-      (transaction) => transaction.propertyId === property.id
-    );
-    const sum = propertyTransactions.reduce(
-      (acc, transaction) => {
-        acc[transaction.type] += Number(transaction.amount || 0);
-        return acc;
-      },
-      { income: 0, expense: 0 }
-    );
-    totals.income += sum.income;
-    totals.expense += sum.expense;
-    return {
-      property,
-      ...sum,
-      result: sum.income - sum.expense,
-    };
+    return selectedPropertyIds.includes(transaction.propertyId);
   });
 
-  const periodLabel = selectedMonth === null
-    ? `Resultados anuais ${selectedYear}`
-    : `Resultados de ${new Date(selectedYear, selectedMonth).toLocaleString("pt-PT", {
-        month: "long",
-      })} ${selectedYear}`;
+  const buildValues = (rows, type) =>
+    rows.map((row) => {
+      const monthly = Array.from({ length: 12 }, () => 0);
+      filtered
+        .filter((transaction) => transaction.type === type)
+        .forEach((transaction) => {
+          if (!row.categories.includes(transaction.category)) return;
+          const month = new Date(transaction.date).getMonth();
+          monthly[month] += Number(transaction.amount || 0);
+        });
+      return { label: row.label, monthly };
+    });
+
+  const incomeData = buildValues(INCOME_ROWS, "income");
+  const expenseData = buildValues(EXPENSE_ROWS, "expense");
+
+  const incomeTotals = Array.from({ length: 12 }, () => 0);
+  const expenseTotals = Array.from({ length: 12 }, () => 0);
+
+  incomeData.forEach((row) => {
+    row.monthly.forEach((value, index) => {
+      incomeTotals[index] += value;
+    });
+  });
+
+  expenseData.forEach((row) => {
+    row.monthly.forEach((value, index) => {
+      expenseTotals[index] += value;
+    });
+  });
+
+  const resultTotals = incomeTotals.map((value, index) => value - expenseTotals[index]);
+
+  const resultClass = (value) =>
+    value >= 0 ? "result-positive" : "result-negative";
 
   ui.summaryTable.innerHTML = `
-    <p class="hint">${periodLabel}</p>
-    <table>
+    <p class="hint">${propertyLabel} — ${selectedYear}</p>
+    <table class="summary-table">
       <thead>
         <tr>
-          <th>Imóvel</th>
-          <th>Receitas</th>
-          <th>Despesas</th>
-          <th>Resultado</th>
+          <th></th>
+          ${SUMMARY_MONTHS.map((month) => `<th>${month}</th>`).join("")}
+          <th>Total</th>
+        </tr>
+        <tr class="summary-section income-section">
+          <th colspan="14">Receitas</th>
         </tr>
       </thead>
       <tbody>
-        ${byProperty
-          .map(
-            (item) => `
-          <tr>
-            <td>${item.property.name}</td>
-            <td>${formatCurrency(item.income)}</td>
-            <td>${formatCurrency(item.expense)}</td>
-            <td>${formatCurrency(item.result)}</td>
-          </tr>
-        `
-          )
+        ${incomeData
+          .map((row) => buildSummaryRow(row.label, row.monthly, "income-row"))
           .join("")}
-        <tr>
-          <th>Total</th>
-          <th>${formatCurrency(totals.income)}</th>
-          <th>${formatCurrency(totals.expense)}</th>
-          <th>${formatCurrency(totals.income - totals.expense)}</th>
-        </tr>
+        ${buildSummaryRow("Total Receitas", incomeTotals, "income-total")}
       </tbody>
+      <thead>
+        <tr class="summary-section expense-section">
+          <th colspan="14">Despesas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${expenseData
+          .map((row) => buildSummaryRow(row.label, row.monthly, "expense-row"))
+          .join("")}
+        ${buildSummaryRow("Total Despesas", expenseTotals, "expense-total")}
+      </tbody>
+      <tfoot>
+        <tr class="summary-section result-row">
+          <th>Resultado</th>
+          ${resultTotals
+            .map(
+              (value) =>
+                `<th class="${resultClass(value)}">${formatCurrency(value)}</th>`
+            )
+            .join("")}
+          <th class="${resultClass(resultTotals.reduce((a, b) => a + b, 0))}">
+            ${formatCurrency(resultTotals.reduce((a, b) => a + b, 0))}
+          </th>
+        </tr>
+      </tfoot>
     </table>
   `;
 };
@@ -597,8 +692,8 @@ const setupMainPage = (data, session) => {
   refreshApp(data, session);
   setView("menuView");
 
-  if (ui.filterYear) {
-    ui.filterYear.value = currentYear();
+  if (ui.summaryYear) {
+    ui.summaryYear.value = currentYear();
   }
 
   if (ui.propertyForm) {
@@ -718,16 +813,20 @@ const setupMainPage = (data, session) => {
     });
   }
 
-  if (ui.filterYear) {
-    ui.filterYear.addEventListener("input", () => renderSummary(data));
+  if (ui.summaryYear) {
+    ui.summaryYear.addEventListener("input", () => renderSummary(data));
   }
-  if (ui.filterMonth) {
-    ui.filterMonth.addEventListener("change", () => renderSummary(data));
+  if (ui.summaryProperties) {
+    ui.summaryProperties.addEventListener("change", () => renderSummary(data));
   }
-  if (ui.filterReset) {
-    ui.filterReset.addEventListener("click", () => {
-      ui.filterYear.value = currentYear();
-      ui.filterMonth.value = "";
+  if (ui.summaryReset) {
+    ui.summaryReset.addEventListener("click", () => {
+      ui.summaryYear.value = currentYear();
+      if (ui.summaryProperties) {
+        Array.from(ui.summaryProperties.options).forEach((option) => {
+          option.selected = option.value === "all";
+        });
+      }
       renderSummary(data);
     });
   }
