@@ -55,6 +55,9 @@
               <h2>Imóveis</h2>
               <p>Crie, edite ou remova imóveis arrendados.</p>
             </div>
+            <div class="toolbar">
+              <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
+            </div>
             <form id="propertyForm" class="stack">
               <input type="hidden" id="propertyId" />
               <label>
@@ -65,10 +68,9 @@
                 <span>Morada</span>
                 <input type="text" id="propertyAddress" required placeholder="Rua das Flores, 123" />
               </label>
-              <div class="row">
-                <button type="submit" class="primary">Guardar imóvel</button>
+              <div class="row row-actions">
                 <button type="button" class="ghost" id="propertyReset">Limpar</button>
-                <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
+                <button type="submit" class="primary">Guardar imóvel</button>
               </div>
             </form>
             <div class="table" id="propertyList"></div>
@@ -78,6 +80,9 @@
             <div class="card-header">
               <h2>Inserir despesa</h2>
               <p>Registe despesas associadas aos imóveis.</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
             </div>
             <form id="expenseForm" class="stack">
               <input type="hidden" id="expenseId" />
@@ -101,10 +106,9 @@
                 <span>Notas</span>
                 <textarea id="expenseNotes" rows="2"></textarea>
               </label>
-              <div class="row">
-                <button type="submit" class="primary">Guardar despesa</button>
+              <div class="row row-actions">
                 <button type="button" class="ghost" id="expenseReset">Limpar</button>
-                <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
+                <button type="submit" class="primary">Guardar despesa</button>
               </div>
             </form>
             <div class="table" id="expenseList"></div>
@@ -114,6 +118,9 @@
             <div class="card-header">
               <h2>Inserir receita</h2>
               <p>Registe rendas, cauções e outras receitas.</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
             </div>
             <form id="incomeForm" class="stack">
               <input type="hidden" id="incomeId" />
@@ -137,10 +144,9 @@
                 <span>Notas</span>
                 <textarea id="incomeNotes" rows="2"></textarea>
               </label>
-              <div class="row">
-                <button type="submit" class="primary">Guardar receita</button>
+              <div class="row row-actions">
                 <button type="button" class="ghost" id="incomeReset">Limpar</button>
-                <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
+                <button type="submit" class="primary">Guardar receita</button>
               </div>
             </form>
             <div class="table" id="incomeList"></div>
@@ -150,6 +156,9 @@
             <div class="card-header">
               <h2>Mapa de resultados</h2>
               <p>Resumo por imóvel e total do portfólio.</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
             </div>
             <div class="filters">
               <label>
@@ -161,7 +170,6 @@
                 <select id="summaryProperties" multiple></select>
               </label>
               <button class="ghost" id="summaryReset" type="button">Este ano</button>
-              <button class="ghost" type="button" data-action="back">Voltar ao menu</button>
             </div>
             <div class="table" id="summaryTable"></div>
           </section>
@@ -170,6 +178,9 @@
             <div class="card-header">
               <h2>Gestão de utilizadores</h2>
               <p>Administra utilizadores ou atualiza a sua palavra-passe.</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
             </div>
             <div id="adminTools" hidden>
               <form id="userForm" class="stack">
@@ -193,10 +204,9 @@
                     <option value="admin">Administrador</option>
                   </select>
                 </label>
-                <div class="row">
-                  <button type="submit" class="primary" id="userSave">Guardar utilizador</button>
+                <div class="row row-actions">
                   <button type="button" class="ghost" id="userReset">Limpar</button>
-                  <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
+                  <button type="submit" class="primary" id="userSave">Guardar utilizador</button>
                 </div>
               </form>
               <div class="table" id="userList"></div>
@@ -208,9 +218,8 @@
                   <span>Nova palavra-passe</span>
                   <input type="password" id="profilePassword" required />
                 </label>
-                <div class="row">
+                <div class="row row-actions">
                   <button type="submit" class="primary">Atualizar palavra-passe</button>
-                  <button type="button" class="ghost" data-action="back">Voltar ao menu</button>
                 </div>
               </form>
             </div>

@@ -123,6 +123,16 @@ button.danger {
   flex-wrap: wrap;
 }
 
+.row-actions {
+  justify-content: flex-end;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
 .grid {
   display: grid;
   gap: 24px;
