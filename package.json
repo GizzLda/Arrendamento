@@ -1,0 +1,12 @@
+{
+  "name": "arrendamento",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check app/app.js"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

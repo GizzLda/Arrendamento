@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arrendamento - Login</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Gestão de arrendamentos</p>
+          <h1>Arrendamento</h1>
+          <p class="subtitle">
+            Controle de imóveis, receitas e despesas com histórico de quem criou ou alterou cada registo.
+          </p>
+        </div>
+      </header>
+
+      <main>
+        <section class="card" id="loginCard">
+          <div class="card-header">
+            <h2>Entrar</h2>
+            <p>Utilize o utilizador de demonstração ou crie novos utilizadores (admin).</p>
+          </div>
+          <form id="loginForm" class="stack">
+            <label>
+              <span>Email</span>
+              <input type="email" id="loginEmail" required placeholder="admin@arrendamento.local" />
+            </label>
+            <label>
+              <span>Palavra-passe</span>
+              <input type="password" id="loginPassword" required placeholder="••••••" />
+            </label>
+            <button type="submit" class="primary">Entrar</button>
+            <p class="hint">
+              <strong>Admin demo:</strong> admin@arrendamento.local / Admin123
+            </p>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="../app.js"></script>
+  </body>
+</html>

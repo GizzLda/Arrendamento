@@ -1,0 +1,17 @@
+[build]
+  publish = "app"
+
+[[redirects]]
+  from = "/"
+  to = "/login/"
+  status = 302
+
+[[redirects]]
+  from = "/login"
+  to = "/login/"
+  status = 301
+
+[[redirects]]
+  from = "/main"
+  to = "/main/"
+  status = 301
