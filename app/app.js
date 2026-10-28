@@ -111,6 +111,44 @@ const clearSession = () => {
   localStorage.removeItem(SESSION_KEY);
 };
 
+// Only use this encoder for text and quoted HTML attributes, never script/URL contexts.
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[character]));
+
+// Persist identity/profile only. Roles always come from the current users record.
+const sessionProfile = ({ id, name, email, role }) => ({ id, name, email, role });
+
+const syncSession = (data) => {
+  const stored = loadSession();
+  const user = stored && data.users.find((item) => item.id === stored.id);
+  activeSession = user ? sessionProfile(user) : null;
+  if (activeSession) {
+    if (JSON.stringify(stored) !== JSON.stringify(activeSession)) saveSession(activeSession);
+  } else {
+    clearSession();
+    if (ui.appView) {
+      ui.appView.hidden = true;
+      ui.appView.style.display = "none";
+      setSessionSummary(null);
+      if (ui.userList) ui.userList.innerHTML = "";
+      location.href = "../login/";
+    }
+  }
+  return activeSession;
+};
+
+// Re-read before actions, including handlers retained from an earlier admin render.
+const currentActor = (data) => {
+  Object.assign(data, loadData());
+  const actor = syncSession(data);
+  if (actor) {
+    setSessionSummary(actor);
+    renderUsers(data, actor);
+  }
+  return actor;
+};
+
 const formatCurrency = (value) =>
   new Intl.NumberFormat("pt-PT", {
     style: "currency",
@@ -132,8 +170,8 @@ const setSessionSummary = (user) => {
   }
   const userButtonLabel = user.role === "admin" ? "Gerir utilizadores" : "Minha conta";
   ui.sessionSummary.innerHTML = `
-    <p><strong>${user.name}</strong></p>
-    <p class="hint">${user.email}</p>
+    <p><strong>${escapeHtml(user.name)}</strong></p>
+    <p class="hint">${escapeHtml(user.email)}</p>
     <span class="badge">${user.role === "admin" ? "Administrador" : "Utilizador"}</span>
     <div class="row" style="margin-top:12px;">
       <button class="ghost" id="userMenuButton">${userButtonLabel}</button>
@@ -198,7 +236,7 @@ const wireNavigation = () => {
 
 const renderPropertyOptions = (properties) => {
   const options = properties
-    .map((property) => `<option value="${property.id}">${property.name}</option>`)
+    .map((property) => `<option value="${escapeHtml(property.id)}">${escapeHtml(property.name)}</option>`)
     .join("");
   if (ui.expenseProperty) {
     ui.expenseProperty.innerHTML = options;
@@ -218,17 +256,17 @@ const renderPropertyOptions = (properties) => {
 const renderCategoryOptions = () => {
   if (ui.expenseCategory) {
     ui.expenseCategory.innerHTML = CATEGORY_OPTIONS.expense
-      .map((category) => `<option value="${category}">${category}</option>`)
+      .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
       .join("");
   }
   if (ui.incomeCategory) {
     ui.incomeCategory.innerHTML = CATEGORY_OPTIONS.income
-      .map((category) => `<option value="${category}">${category}</option>`)
+      .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
       .join("");
   }
 };
 
-const renderProperties = (data, user) => {
+const renderProperties = (data) => {
   if (!ui.propertyList) return;
   if (data.properties.length === 0) {
     ui.propertyList.innerHTML = "<p class=\"hint\">Ainda não existem imóveis.</p>";
@@ -251,11 +289,11 @@ const renderProperties = (data, user) => {
           .map(
             (property) => `
           <tr>
-            <td>${property.name}</td>
-            <td>${property.address}</td>
+            <td>${escapeHtml(property.name)}</td>
+            <td>${escapeHtml(property.address)}</td>
             <td>
-              <button class="ghost" data-action="edit" data-id="${property.id}">Editar</button>
-              <button class="danger" data-action="delete" data-id="${property.id}">Remover</button>
+              <button class="ghost" data-action="edit" data-id="${escapeHtml(property.id)}">Editar</button>
+              <button class="danger" data-action="delete" data-id="${escapeHtml(property.id)}">Remover</button>
             </td>
           </tr>
         `
@@ -267,6 +305,7 @@ const renderProperties = (data, user) => {
 
   ui.propertyList.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => {
+      if (!currentActor(data)) return;
       const action = button.dataset.action;
       const propertyId = button.dataset.id;
       const property = data.properties.find((item) => item.id === propertyId);
@@ -283,13 +322,13 @@ const renderProperties = (data, user) => {
           (item) => item.propertyId !== propertyId
         );
         saveData(data);
-        refreshApp(data, user);
+        refreshApp(data);
       }
     });
   });
 };
 
-const renderTransactions = (data, user) => {
+const renderTransactions = (data) => {
   if (!ui.expenseList || !ui.incomeList) return;
   if (data.transactions.length === 0) {
     ui.expenseList.innerHTML = "<p class=\"hint\">Nenhuma despesa registada.</p>";
@@ -321,6 +360,7 @@ const renderTransactions = (data, user) => {
   [ui.expenseList, ui.incomeList].forEach((list) => {
     list.querySelectorAll("button").forEach((button) => {
       button.addEventListener("click", () => {
+        if (!currentActor(data)) return;
         const action = button.dataset.action;
         const transactionId = button.dataset.id;
         const transaction = data.transactions.find((item) => item.id === transactionId);
@@ -348,7 +388,7 @@ const renderTransactions = (data, user) => {
         if (action === "delete") {
           data.transactions = data.transactions.filter((item) => item.id !== transactionId);
           saveData(data);
-          refreshApp(data, user);
+          refreshApp(data);
         }
       });
     });
@@ -358,17 +398,17 @@ const renderTransactions = (data, user) => {
 const transactionRow = (transaction, propertyLookup) => `
   <tr>
     <td>${formatDate(transaction.date)}</td>
-    <td>${propertyLookup.get(transaction.propertyId) || "-"}</td>
-    <td>${transaction.category}</td>
+    <td>${escapeHtml(propertyLookup.get(transaction.propertyId) || "-")}</td>
+    <td>${escapeHtml(transaction.category)}</td>
     <td>${formatCurrency(transaction.amount)}</td>
-    <td>${transaction.notes || "-"}</td>
+    <td>${escapeHtml(transaction.notes || "-")}</td>
     <td class="audit">
-      Criado por ${transaction.createdBy}
-      ${transaction.updatedBy ? `<br/>Atualizado por ${transaction.updatedBy}` : ""}
+      Criado por ${escapeHtml(transaction.createdBy)}
+      ${transaction.updatedBy ? `<br/>Atualizado por ${escapeHtml(transaction.updatedBy)}` : ""}
     </td>
     <td>
-      <button class="ghost" data-action="edit" data-id="${transaction.id}">Editar</button>
-      <button class="danger" data-action="delete" data-id="${transaction.id}">Remover</button>
+      <button class="ghost" data-action="edit" data-id="${escapeHtml(transaction.id)}">Editar</button>
+      <button class="danger" data-action="delete" data-id="${escapeHtml(transaction.id)}">Remover</button>
     </td>
   </tr>
 `;
@@ -444,8 +484,8 @@ const buildSummaryRow = (label, values, rowClass = "", isTotal = false) => {
   const total = values.reduce((sum, value) => sum + value, 0);
   const totalClass = isTotal ? "summary-total" : "";
   return `
-    <tr class="${rowClass} ${totalClass}">
-      <th>${label}</th>
+    <tr class="${escapeHtml(rowClass)} ${totalClass}">
+      <th>${escapeHtml(label)}</th>
       ${values.map((value) => `<td>${formatCurrency(value)}</td>`).join("")}
       <th>${formatCurrency(total)}</th>
     </tr>
@@ -510,7 +550,7 @@ const renderSummary = (data) => {
     value >= 0 ? "result-positive" : "result-negative";
 
   ui.summaryTable.innerHTML = `
-    <p class="hint">${propertyLabel} — ${selectedYear}</p>
+    <p class="hint">${escapeHtml(propertyLabel)} — ${selectedYear}</p>
     <table class="summary-table">
       <thead>
         <tr>
@@ -580,15 +620,15 @@ const renderUsers = (data, session) => {
             .map(
               (user) => `
             <tr>
-              <td>${user.name}</td>
-              <td>${user.email}</td>
-              <td>${user.role}</td>
+              <td>${escapeHtml(user.name)}</td>
+              <td>${escapeHtml(user.email)}</td>
+              <td>${escapeHtml(user.role)}</td>
               <td>
-                <button class="ghost" data-action="edit" data-id="${user.id}">Editar</button>
+                <button class="ghost" data-action="edit" data-id="${escapeHtml(user.id)}">Editar</button>
                 ${
                   user.id === session.id
                     ? "Sessão ativa"
-                    : `<button class="danger" data-action="delete" data-id="${user.id}">Remover</button>`
+                    : `<button class="danger" data-action="delete" data-id="${escapeHtml(user.id)}">Remover</button>`
                 }
               </td>
             </tr>
@@ -601,6 +641,8 @@ const renderUsers = (data, session) => {
 
     ui.userList.querySelectorAll("button").forEach((button) => {
       button.addEventListener("click", () => {
+        const actor = currentActor(data);
+        if (!actor || actor.role !== "admin") return;
         const action = button.dataset.action;
         const userId = button.dataset.id;
         const target = data.users.find((item) => item.id === userId);
@@ -614,13 +656,17 @@ const renderUsers = (data, session) => {
           return;
         }
         if (action === "delete") {
+          if (userId === actor.id) return;
           data.users = data.users.filter((item) => item.id !== userId);
           saveData(data);
-          refreshApp(data, session);
+          refreshApp(data);
         }
       });
     });
   } else {
+    ui.userList.innerHTML = "";
+    ui.userForm.reset();
+    ui.userId.value = "";
     ui.adminTools.hidden = true;
     ui.profileTools.hidden = false;
     const currentUser = data.users.find((user) => user.id === session.id);
@@ -637,9 +683,9 @@ const renderUsers = (data, session) => {
           </thead>
           <tbody>
             <tr>
-              <td>${currentUser.name}</td>
-              <td>${currentUser.email}</td>
-              <td>${currentUser.role}</td>
+              <td>${escapeHtml(currentUser.name)}</td>
+              <td>${escapeHtml(currentUser.email)}</td>
+              <td>${escapeHtml(currentUser.role)}</td>
             </tr>
           </tbody>
         </table>
@@ -648,9 +694,12 @@ const renderUsers = (data, session) => {
   }
 };
 
-const refreshApp = (data, session) => {
-  renderProperties(data, session);
-  renderTransactions(data, session);
+const refreshApp = (data) => {
+  const session = syncSession(data);
+  if (!session) return;
+  setSessionSummary(session);
+  renderProperties(data);
+  renderTransactions(data);
   renderSummary(data);
   renderUsers(data, session);
 };
@@ -664,6 +713,7 @@ const setupLoginPage = (data, session) => {
 
   ui.loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    Object.assign(data, loadData());
     const email = ui.loginEmail.value.trim();
     const password = ui.loginPassword.value.trim();
     const found = data.users.find(
@@ -674,7 +724,7 @@ const setupLoginPage = (data, session) => {
       alert("Credenciais inválidas.");
       return;
     }
-    saveSession(found);
+    saveSession(sessionProfile(found));
     location.href = "../main/";
   });
 };
@@ -690,7 +740,7 @@ const setupMainPage = (data, session) => {
   setSessionSummary(session);
   renderCategoryOptions();
   wireNavigation();
-  refreshApp(data, session);
+  refreshApp(data);
   setView("menuView");
 
   if (ui.summaryYear) {
@@ -700,6 +750,7 @@ const setupMainPage = (data, session) => {
   if (ui.propertyForm) {
     ui.propertyForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!currentActor(data)) return;
       const name = ui.propertyName.value.trim();
       const address = ui.propertyAddress.value.trim();
       if (!name || !address) return;
@@ -719,7 +770,7 @@ const setupMainPage = (data, session) => {
       }
       saveData(data);
       ui.propertyForm.reset();
-      refreshApp(data, session);
+      refreshApp(data);
     });
   }
 
@@ -733,6 +784,7 @@ const setupMainPage = (data, session) => {
   if (ui.expenseForm) {
     ui.expenseForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!currentActor(data)) return;
       const id = ui.expenseId.value;
       const payload = {
         propertyId: ui.expenseProperty.value,
@@ -746,12 +798,12 @@ const setupMainPage = (data, session) => {
       if (id) {
         const transaction = data.transactions.find((item) => item.id === id);
         if (!transaction) return;
-        Object.assign(transaction, payload, { updatedBy: session.name });
+        Object.assign(transaction, payload, { updatedBy: activeSession.name });
       } else {
         data.transactions.push({
           id: createId(),
           ...payload,
-          createdBy: session.name,
+          createdBy: activeSession.name,
           updatedBy: "",
         });
       }
@@ -760,7 +812,7 @@ const setupMainPage = (data, session) => {
       ui.expenseForm.reset();
       ui.expenseId.value = "";
       ui.expenseDate.value = new Date().toISOString().split("T")[0];
-      refreshApp(data, session);
+      refreshApp(data);
     });
   }
 
@@ -775,6 +827,7 @@ const setupMainPage = (data, session) => {
   if (ui.incomeForm) {
     ui.incomeForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!currentActor(data)) return;
       const id = ui.incomeId.value;
       const payload = {
         propertyId: ui.incomeProperty.value,
@@ -788,12 +841,12 @@ const setupMainPage = (data, session) => {
       if (id) {
         const transaction = data.transactions.find((item) => item.id === id);
         if (!transaction) return;
-        Object.assign(transaction, payload, { updatedBy: session.name });
+        Object.assign(transaction, payload, { updatedBy: activeSession.name });
       } else {
         data.transactions.push({
           id: createId(),
           ...payload,
-          createdBy: session.name,
+          createdBy: activeSession.name,
           updatedBy: "",
         });
       }
@@ -802,7 +855,7 @@ const setupMainPage = (data, session) => {
       ui.incomeForm.reset();
       ui.incomeId.value = "";
       ui.incomeDate.value = new Date().toISOString().split("T")[0];
-      refreshApp(data, session);
+      refreshApp(data);
     });
   }
 
@@ -835,13 +888,14 @@ const setupMainPage = (data, session) => {
   if (ui.userForm) {
     ui.userForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (session.role !== "admin") return;
+      if (!currentActor(data)) return;
+      if (activeSession.role !== "admin") return;
       const name = ui.userName.value.trim();
       const email = ui.userEmail.value.trim();
       const password = ui.userPassword.value.trim();
       const role = ui.userRole.value;
 
-      if (!name || !email) return;
+      if (!name || !email || !["admin", "user"].includes(role)) return;
       const id = ui.userId.value;
       const emailExists = data.users.some(
         (user) => user.email.toLowerCase() === email.toLowerCase() && user.id !== id
@@ -876,7 +930,7 @@ const setupMainPage = (data, session) => {
       saveData(data);
       ui.userForm.reset();
       ui.userId.value = "";
-      refreshApp(data, session);
+      refreshApp(data);
       setView("menuView");
     });
   }
@@ -891,10 +945,11 @@ const setupMainPage = (data, session) => {
   if (ui.passwordForm) {
     ui.passwordForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (session.role === "admin") return;
+      if (!currentActor(data)) return;
+      if (activeSession.role === "admin") return;
       const newPassword = ui.profilePassword.value.trim();
       if (!newPassword) return;
-      const currentUser = data.users.find((user) => user.id === session.id);
+      const currentUser = data.users.find((user) => user.id === activeSession.id);
       if (!currentUser) return;
       currentUser.password = newPassword;
       saveData(data);
@@ -910,9 +965,17 @@ const setupMainPage = (data, session) => {
 
 const init = () => {
   const data = loadData();
-  const session = loadSession();
+  const session = syncSession(data);
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY && event.key !== SESSION_KEY && event.key !== null) return;
+    Object.assign(data, loadData());
+    const updated = syncSession(data);
+    if (ui.appView && updated) refreshApp(data);
+    if (ui.loginForm && updated) location.href = "../main/";
+  });
   setupLoginPage(data, session);
   setupMainPage(data, session);
 };
 
 init();
+
